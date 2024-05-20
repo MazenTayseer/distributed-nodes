@@ -1,66 +1,47 @@
-from WorkerThread import WorkerThread
 import queue
 import json
-import time
 import os
-
-UPLOADS_DIR = "/home/mazen/gui/uploads"
-RESULTS_DIR = "/home/mazen/gui/results"
-
-
+from WorkerThread import WorkerThread
 
 def worker(comm, images_list):
     CPU_NUM = comm.Get_size() - 1
+    rank = comm.Get_rank()
+    print(f"node: Worker {rank} starting with {CPU_NUM} CPUs.")
 
-    threads = []
-    integerPartPerPart = len(images_list) // CPU_NUM
+    images_list = sorted(images_list, key=lambda x: int(x.split('_')[-1].split('.')[0]))
+
+    integer_part_per_cpu = len(images_list) // CPU_NUM
     remainder = len(images_list) % CPU_NUM
-
-    result = [integerPartPerPart] * CPU_NUM
+    image_counts = [integer_part_per_cpu] * CPU_NUM
 
     for i in range(remainder):
-        result[i] += 1
+        image_counts[i] += 1
 
-    number_of_threads = result[comm.Get_rank() - 1]
+    num_threads = image_counts[rank - 1]
+    print(f"node: Worker {rank} will process {num_threads} images.")
 
-    with open("/home/mazen/gui/image_data.json") as f:
+    image_data_path = os.getenv("IMAGE_DATA_PATH", "/home/mazen/gui/image_data.json")
+    with open(image_data_path) as f:
         image_data = json.load(f)
-        
-    image_data = sorted(image_data, key=lambda x: x['file_path'])
-    images_list = sorted(images_list)
+
+    image_data = sorted(image_data, key=lambda x: int(x['file_path'].split('_')[-1].split('.')[0]))
 
     task_queue = queue.Queue()
-    starting_index = (comm.Get_rank() - 1) * number_of_threads
-    
-    for i in range(starting_index, starting_index + number_of_threads):
+    starting_index = sum(image_counts[:rank - 1])
+
+    for i in range(starting_index, starting_index + num_threads):
         task_queue.put((images_list[i], image_data[i]["operation"], i))
 
-
-    for i in range(number_of_threads):
+    for _ in range(num_threads):
         task_queue.put(None)
 
-    for i in range(number_of_threads):
+    threads = []
+    for _ in range(num_threads):
         thread = WorkerThread(task_queue, comm)
         thread.start()
-        # print(f"Thread {i+1} started on node", comm.Get_rank())
         threads.append(thread)
 
     for thread in threads:
         thread.join()
 
-    # time.sleep(4)
-
-    # for i in range(len(images_list)):
-    #     try:
-    #         image_name = images_list[i].split("/")[-1]
-
-    #         results_local_path = os.path.join(RESULTS_DIR, image_name)
-    #         uploads_local_path = os.path.join(UPLOADS_DIR, image_name)
-
-    #         os.remove(results_local_path)
-    #         os.remove(uploads_local_path)
-    #     except FileNotFoundError:
-    #         print("File not found")
-            
-
-    # os.remove("/home/mazen/gui/image_data.json")
+    print(f"node: Worker {rank} finished processing tasks.")

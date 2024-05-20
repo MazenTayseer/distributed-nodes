@@ -15,17 +15,18 @@ RESULTS_DIR = "/home/mazen/gui/results"
 
 
 def master(comm, images_list):
-    # Create worker threads
-
+    print("Master: Starting to receive results from workers...")
     for i in range(len(images_list)):
         received_data = comm.recv(source=MPI.ANY_SOURCE, tag=i)
+        print(f"node:Master: Received data for task {i} from worker.")
 
         if isinstance(received_data, list):
             serve_preds(received_data, images_list[i])
         else:
             serve_images(received_data, images_list[i])
+        print(f"node:Master: Processed result for task {i}.")
+    print("node:Master: Finished processing all results.")
 
-    # print("Copied All Images")
 
 
 def save_image(image, filepath):
