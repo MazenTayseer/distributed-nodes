@@ -6,7 +6,7 @@ import paramiko
 SERVER_NODE_HOST = "server"
 NODE_PORT = 22
 NODE_USERNAME = "mazen"
-NODE_PASSWORD = "MazenAzure2002"
+NODE_PASSWORD = ***
 
 SERVER_NODE_REMOTE_PATH = "/home/mazen/flask/static/results"
 
